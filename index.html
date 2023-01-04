@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href='https://unpkg.com/boxicons@2.1.2/css/boxicons.min.css' rel='stylesheet'>
+    <link rel="stylesheet" href="./css/temp-style.css">
+    <link rel="stylesheet" href="./css/calc-style.css">
+    <link rel="stylesheet" href="./css/news-style.css">
+    <link rel="stylesheet" href="./css/timer-style.css">
+    <title>Shell</title>
+
+    <style>
+         :root {
+            --page-center: calc();
+        }
+        
+        html {
+            -webkit-user-select: none;
+            /* Safari */
+            -ms-user-select: none;
+            /* IE 10 and IE 11 */
+            user-select: none;
+            /* Standard syntax */
+        }
+        
+        body {
+            background-image: url('./zelda.jpg');
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            background-size: 100% 100%;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .shell-container {
+            box-sizing: border-box;
+            position: absolute;
+            display: inline-block;
+            height: 100px;
+            min-width: 300px;
+            min-height: 200px;
+            border: 2px solid rgba(128, 128, 128, 0.793);
+            border-radius: 8px;
+            background-color: rgb(53, 93, 202);
+            box-shadow: 5px 5px 10px 2px rgba(0, 0, 0, .3);
+            overflow: scroll;
+            overflow: hidden;
+            resize: both;
+        }
+        
+        .shell-container>.shell-bar {
+            position: absolute;
+            margin: 0px;
+            border: none;
+            width: 100%;
+            background-color: rgb(0, 0, 0);
+            border-radius: 8px 8px 0 0;
+            z-index: 1;
+        }
+        
+        .weather-cont {
+            border-radius: 8px;
+            border: 1px solid rgba(128, 128, 128, 0.793);
+        }
+        
+        .weather-cont .shell-bar {
+            position: absolute;
+            margin: 0px;
+            border: none;
+            width: 100%;
+            background-color: rgb(0, 0, 0);
+            border-radius: 8px 8px 0 0;
+            z-index: 1;
+        }
+        
+        .shell-bar>.shell-bar-element {
+            position: relative;
+            border: 1px solid black;
+            border-radius: 12px;
+            display: inline-block;
+            background-color: black;
+            margin-top: 5px;
+            margin-bottom: 5px;
+        }
+        
+        .shell-bar>.shell-bar-element-X {
+            position: relative;
+            border: 1px solid black;
+            border-radius: 12px;
+            display: inline-block;
+            background-color: black;
+            margin-top: 5px;
+            margin-left: 7px;
+            margin-bottom: 5px;
+        }
+        
+        .shell-bar>.shell-bar-element-X:hover {
+            position: relative;
+            border: 1px solid rgb(100, 94, 94);
+            border-radius: 12px;
+            display: inline-block;
+            background-color: rgb(100, 94, 94);
+            margin-top: 5px;
+            margin-left: 7px;
+            margin-bottom: 5px;
+            cursor: pointer;
+        }
+        
+        .shell-bar>.shell-bar-username {
+            font-family: monospace;
+            font-size: large;
+            color: aliceblue;
+            font-weight: 500;
+            position: relative;
+            border: 1px solid inherit;
+            border-radius: 12px;
+            display: inline-block;
+            background-color: inherit;
+            margin: 0px;
+        }
+        
+        .shell-bar>.shell-bar-element:hover {
+            position: relative;
+            border: 1px solid rgb(100, 94, 94);
+            border-radius: 10px;
+            display: inline-block;
+            background-color: rgb(100, 94, 94);
+            margin: 0px;
+            cursor: pointer;
+        }
+        
+        textarea {
+            display: block;
+            padding-top: 30px;
+            position: relative;
+            right: 0px;
+            bottom: 0px;
+            font-size: large;
+            background-color: rgb(145, 168, 233);
+            height: 100%;
+            width: 100%;
+            text-align: left;
+            border: 1px solid rgba(25, 93, 122, 0.527);
+            border-radius: 5px;
+            outline: none;
+            opacity: 60%;
+            resize: none;
+        }
+        
+        textarea:enabled {
+            outline: none;
+        }
+        
+        #desktop {
+            display: flex;
+            flex-wrap: wrap;
+        }
+        
+        #shell-btn {
+            position: fixed;
+            width: 5rem;
+            height: 2rem;
+            background-color: aquamarine;
+            border: 0.2rem solid gray;
+            border-radius: .6rem;
+            bottom: 5rem;
+            right: 2rem;
+        }
+        
+        #temp-btn {
+            position: fixed;
+            width: 5rem;
+            height: 2rem;
+            background-color: rgb(255, 127, 225);
+            border: 0.2rem solid gray;
+            border-radius: .6rem;
+            bottom: 5rem;
+            right: 8rem;
+        }
+        
+        footer {
+            background-color: rgba(0, 0, 0, 0.714);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            height: 50px;
+            left: 0;
+            z-index: 10000;
+            backdrop-filter: blur(35px);
+        }
+        
+        body {
+            overflow: hidden;
+        }
+        
+        a {
+            text-decoration: none;
+        }
+        
+        .footer-icon {
+            color: whitesmoke;
+            border-radius: 10%;
+            height: 40px;
+            width: 40px;
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .footer-icon:hover {
+            border: 1px solid #9494944e;
+            border-top: 1px solid #d0d0d069;
+            background-color: #9494944e;
+            box-shadow: 5px 5px 10px 2px rgba(0, 0, 0, .1);
+            transform: scale(1.08);
+        }
+        
+        .footer-icon>.shell-icon {
+            position: absolute;
+            visibility: collapse;
+            display: flex;
+            flex-shrink: 0.9;
+            align-items: center;
+            justify-content: center;
+            flex-direction: row;
+            background-color: rgba(151, 204, 222, 0.394);
+            backdrop-filter: blur(30px);
+        }
+        
+        .footer-icon:hover>.shell-icon {
+            visibility: visible;
+            bottom: 50px;
+            background-color: rgba(151, 204, 222, 0.394);
+            color: rgba(245, 245, 245, 0.604);
+            box-shadow: 5px 5px 10px 2px rgba(0, 0, 0, .3);
+            z-index: 10000;
+            backdrop-filter: blur(30px);
+        }
+        
+        .window-containers {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 150px;
+            height: 80px;
+            padding-top: -150px;
+        }
+        
+        .footer-icon:hover>.shell-icon>.window-containers>.shell-container {
+            position: relative;
+        }
+        
+        .bx {
+            font-size: 30px;
+            text-align: center;
+        }
+        
+        .footer-icon.news {
+            position: absolute;
+            border-radius: 5px;
+            left: 18px;
+            width: 10%;
+            color: rgb(218, 86, 86);
+        }
+        
+        .footer-icon.weather {
+            color: rgb(255, 166, 0);
+        }
+        
+        .footer-icon.calcs {
+            color: rgb(128, 180, 98);
+        }
+        
+        .footer-icon.shell {
+            color: rgb(57, 146, 187);
+        }
+        
+        .animated-hidden {
+            animation-name: displaceContent;
+            animation-duration: .2s;
+            animation-delay: 0s;
+            animation-iteration-count: 1;
+            animation-fill-mode: forwards;
+        }
+        
+        .animated-fadeIn {
+            animation-name: fadeIn;
+            animation-duration: .5s;
+            animation-delay: 0s;
+            animation-iteration-count: 1;
+            animation-fill-mode: forwards;
+        }
+        
+        .animated-close {
+            animation-name: close;
+            animation-duration: .2s;
+            animation-delay: 0s;
+            animation-iteration-count: 1;
+            animation-fill-mode: forwards;
+        }
+        
+        @keyframes close {
+            from {
+                transform: scale(1);
+            }
+            to {
+                transform: scale(0.2);
+                opacity: 0;
+            }
+            /* slide down to make room for advertisements */
+        }
+        
+        @keyframes displaceContent {
+            from {
+                transform: translateY(0em);
+            }
+            to {
+                transform: translate3d(50%, 100%, 0) scale(0.5);
+                opacity: 0;
+                visibility: hidden;
+            }
+            /* slide down to make room for advertisements */
+        }
+        
+        @keyframes fadeIn {
+            from {
+                transform: translate3d(50%, 100%, 0) scale(0.5);
+                opacity: 0;
+            }
+            to {
+                transform: translate3d(0rem, 0rem, 0) scale(1);
+                opacity: 1;
+            }
+            /* slide down to make room for advertisements */
+        }
+        
+        .footer-icon.window-info {
+            position: absolute;
+            border-radius: 5px;
+            right: 10px;
+            width: auto;
+            padding: 0 6px 0 6px;
+            text-shadow: none;
+        }
+        
+        .footer-icon.window-info {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            font-size: 12px;
+        }
+        
+        #side-time {
+            font-family: system-ui;
+            text-align: right;
+        }
+        
+        .footer-icon.window-info:hover {
+            transform: none !important;
+        }
+        
+        .bxs-battery-full {
+            font-size: 25px;
+        }
+        
+        .bxs-battery-full .battery-perc {
+            font-size: 11px;
+        }
+        
+        .bxs-battery-low {
+            font-size: 25px;
+        }
+        
+        .bxs-battery-low .battery-perc {
+            font-size: 11px;
+        }
+        
+        .bxs-battery-charging {
+            font-size: 25px;
+        }
+        
+        .bxs-battery-charging .battery-perc {
+            font-size: 11px;
+        }
+        
+        .battery-infos {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+
+<body onload="move('container')">
+    <div id="desktop">
+
+        <div class="shell-container resizeme" id="container" style="visibility: hidden;">
+            <div class="resizer resizer-r"></div>
+            <div class="resizer resizer-b"></div>
+            <div class="windows-bar shell-bar" id="shell-bar">
+                <div class="shell-bar-element-X" onclick="deleteWindow(event)">
+                    ❌
+                </div>
+                <div class="shell-bar-element" onclick="hiddenWindow(event)">
+                    ➖
+                </div>
+                <div class="shell-bar-element" onclick="maximiseWindow(event, 'b')">
+                    🔳
+                </div>
+                <div class="shell-bar-username">
+                    cicciodibbi@ubuntu:~$
+                </div>
+
+            </div>
+            <textarea class="text-area-shell" id="shell" spellcheck="false">cicciodibbi@ubuntu:~$ </textarea>
+        </div>
+        <div class="weather-cont resizeme" style="visibility: hidden;">
+            <div class="resizer resizer-r"></div>
+            <div class="resizer resizer-b"></div>
+            <div class="windows-bar shell-bar" id="shell-bar">
+                <div class="shell-bar-element-X" onclick="deleteWindow(event)">
+                    ❌
+                </div>
+                <div class="shell-bar-element" onclick="hiddenWindow(event)">
+                    ➖
+                </div>
+                <div class="shell-bar-element" onclick="maximiseWindow(event, 'b')">
+                    🔳
+                </div>
+                <div class="shell-bar-username" style="font-family: 'Poppins', sans-serif;">
+                    Meteo
+                </div>
+
+            </div>
+            <div class="info-cont windows-bar">
+
+                <img id="temp-background" src="https://img.freepik.com/premium-photo/summer-clouds-with-clear-skies_5219-8036.jpg?w=1060">
+                <div class="city-name">Catania</div>
+                <div class="state-name">Italia</div>
+                <div class="temp">25°C</div>
+                <hr>
+                <div class="humidity"></div>
+                <div class="infos"></div>
+            </div>
+            <div class="search-container">
+                <input type="search" name="" id="search-input" placeholder="Cerca Città">
+                <a href="#" onclick="searchCity(event)"><i class='bx bx-search'></i></a>
+            </div>
+        </div>
+        <div class="calcolatrice resizeme" style="visibility: hidden;">
+            <div class="resizer resizer-r"></div>
+            <div class="resizer resizer-b"></div>
+            <div class="windows-bar shell-bar" id="shell-bar">
+                <div class="shell-bar-element-X" onclick="deleteWindow(event)">
+                    ❌
+                </div>
+                <div class="shell-bar-element" onclick="hiddenWindow(event)">
+                    ➖
+                </div>
+                <div class="shell-bar-element" onclick="maximiseWindow(event, 'b')">
+                    🔳
+                </div>
+                <div class="shell-bar-username" style="font-family: 'Poppins', sans-serif;">
+                    Calcolatrice
+                </div>
+
+            </div>
+            <div class="calc-container">
+                <div class="calc-display" id="displayCalc">
+                    <input id="inputCalc" class="calc-input" type="text" readonly="" value="">
+                    <input id="outCalc" class="calc-input" type="text" readonly="" value="">
+                </div>
+                <div class="calc-canc" onclick="canc(event)">
+                    DEL
+                </div>
+                <div class="calc-board">
+                    <span onclick="digitNumber('7', event)">7</span><span onclick="digitNumber('8', event)">8</span><span onclick="digitNumber('9', event)">9</span>
+                    <span onclick="digitNumber('4', event)">4</span><span onclick="digitNumber('5', event)">5</span><span onclick="digitNumber('6', event)">6</span>
+                    <span onclick="digitNumber('1', event)">1</span><span onclick="digitNumber('2', event)">2</span><span onclick="digitNumber('3', event)">3</span>
+                </div>
+                <div class="calc-operations">
+                    <span onclick="digitOperation('+', event)">+</span><span onclick="digitOperation('-', event)">-</span><span onclick="digitOperation('x', event)">x</span><span onclick="digitOperation(':', event)">:</span>
+                </div>
+                <div class="calc-uguale" onclick="getRes(event)">
+                    =
+                </div>
+                <div class="calc-zero" onclick="digitNumber('0', event)">
+                    0
+                </div>
+                <div class="calc-point" onclick="digitNumber('.', event)">
+                    .
+                </div>
+            </div>
+        </div>
+        <div class="timer-cont" id="timer" style="visibility: hidden;">
+            <div class="windows-bar shell-bar" id="shell-bar">
+                <div class="shell-bar-element-X" onclick="deleteWindow(event)">
+                    ❌
+                </div>
+                <div class="shell-bar-element" onclick="hiddenWindow(event)">
+                    ➖
+                </div>
+                <div class="shell-bar-element" onclick="maximiseWindow(event, 'b')">
+                    🔳
+                </div>
+                <div class="shell-bar-username" style="font-family: 'Poppins', sans-serif;">
+                    Timer
+                </div>
+
+            </div>
+            <div class="timer-flex">
+                <div class="timer-circle out">
+                    <div class="timer-circle in">
+                        <div class="number">
+                            <input type="number" min="0" max="60" class="timer-input minutes" value="0"> :<input type="number" min="0" max="60" class="timer-input seconds" value="0">
+
+                        </div>
+                        <button class="timer-button" id="0" onclick="startTimer(event)">VAI</button>
+
+                        <button class="timer-del-button" id="0" onclick="toggleIsOverTimer(event)">STOP</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+    <div class="news-container">
+        <div class="time-bar">18:26</div>
+        <div class="search-bar">
+            <input placeholder="Search">
+        </div>
+        <div class="grid-container">
+            <div class="card">
+                <div class="title-1">
+                    <a href="#">Notizia due Lorem ipsum dolor sit amet, consectetur adipisicing elit. lore</a>
+                </div>
+                <img class="news-img-1" src="./NQw0dr2fBnsiJXxSviAdGsHNgLEQl2nz4oS671w7.webp" alt="">
+            </div>
+            <div class="card">
+                <div class="title-1">
+                    <a href="#">Notizia due Lorem ipsum dolor sit amet, consectetur adipisicing elit. lore</a>
+                </div>
+                <img class="news-img-1" src="./NQw0dr2fBnsiJXxSviAdGsHNgLEQl2nz4oS671w7.webp" alt="">
+            </div>
+            <div class="card row-span-2 col-span-2">
+                <img class="news-img" src="./NQw0dr2fBnsiJXxSviAdGsHNgLEQl2nz4oS671w7.webp" alt="">
+                <div class="title">
+                    <a href="#">Notizia quattro Lorem ipsum dolor sit amet consectetur adipisicing elit. Doloribus excepturi expedita, cumque sint, itaque sed, ut fugiat ipsa hic aperiam obcaecati non et vel aliquam labore laboriosam id repellat praesentium?</a>
+                </div>
+            </div>
+            <div class="card">
+                <div class="title-1">
+                    <a href="#">Notizia due Lorem ipsum dolor sit amet, consectetur adipisicing elit. lore</a>
+                </div>
+                <img class="news-img-1" src="./NQw0dr2fBnsiJXxSviAdGsHNgLEQl2nz4oS671w7.webp" alt="">
+            </div>
+            <div class="card">
+                <div class="title-1">
+                    <a href="#">Notizia due Lorem ipsum dolor sit amet, consectetur adipisicing elit. lore</a>
+                </div>
+                <img class="news-img-1" src="./NQw0dr2fBnsiJXxSviAdGsHNgLEQl2nz4oS671w7.webp" alt="">
+            </div>
+            <div class="card">
+                <div class="title-1">
+                    <a href="#">Notizia due Lorem ipsum dolor sit amet, consectetur adipisicing elit. lore</a>
+                </div>
+                <img class="news-img-1" src="./NQw0dr2fBnsiJXxSviAdGsHNgLEQl2nz4oS671w7.webp" alt="">
+            </div>
+
+            <div class="card row-span-2"><img class="news-img" src="./NQw0dr2fBnsiJXxSviAdGsHNgLEQl2nz4oS671w7.webp" alt="">
+                <div class="title">
+                    <a href="#">Notizia quattro Lorem ipsum dolor sit amet consectetur adipisicing elit. Doloribus excepturi expedita, cumque sint, itaque sed, ut fugiat ipsa hic aperiam obcaecati non et vel aliquam labore laboriosam id repellat praesentium?</a>
+                </div>
+            </div>
+            <div class="card">
+                <div class="title-1">
+                    <a href="#">Notizia due Lorem ipsum dolor sit amet, consectetur adipisicing elit. lore</a>
+                </div>
+                <img class="news-img-1" src="./NQw0dr2fBnsiJXxSviAdGsHNgLEQl2nz4oS671w7.webp" alt="">
+            </div>
+            <div class="card col-span-2">
+                <div class="title">
+                    Notizia tre
+                </div>
+            </div>
+            <div class="card">
+                <div class="title-1">
+                    <a href="#">Notizia due Lorem ipsum dolor sit amet, consectetur adipisicing elit. lore</a>
+                </div>
+                <img class="news-img-1" src="./NQw0dr2fBnsiJXxSviAdGsHNgLEQl2nz4oS671w7.webp" alt="">
+            </div>
+            <div class="card">
+                <div class="title-1">
+                    <a href="#">Notizia due Lorem ipsum dolor sit amet, consectetur adipisicing elit. lore</a>
+                </div>
+                <img class="news-img-1" src="./NQw0dr2fBnsiJXxSviAdGsHNgLEQl2nz4oS671w7.webp" alt="">
+            </div>
+            <div class="card col-span-2">notizia</div>
+            <div class="card">
+                <div class="title-1">
+                    <a href="#">Notizia due Lorem ipsum dolor sit amet, consectetur adipisicing elit. lore</a>
+                </div>
+                <img class="news-img-1" src="./NQw0dr2fBnsiJXxSviAdGsHNgLEQl2nz4oS671w7.webp" alt="">
+            </div>
+            <div class="card">
+                <div class="title-1">
+                    <a href="#">Notizia due Lorem ipsum dolor sit amet, consectetur adipisicing elit. lore</a>
+                </div>
+                <img class="news-img-1" src="./NQw0dr2fBnsiJXxSviAdGsHNgLEQl2nz4oS671w7.webp" alt="">
+            </div>
+            <div class="card row-span-2"></div>
+            <div class="card">
+                <div class="title-1">
+                    <a href="#">Notizia due Lorem ipsum dolor sit amet, consectetur adipisicing elit. lore</a>
+                </div>
+                <img class="news-img-1" src="./NQw0dr2fBnsiJXxSviAdGsHNgLEQl2nz4oS671w7.webp" alt="">
+            </div>
+            <div class="card row-span-2"></div>
+            <div class="card">
+                <div class="title-1">
+                    <a href="#">Notizia due Lorem ipsum dolor sit amet, consectetur adipisicing elit. lore</a>
+                </div>
+                <img class="news-img-1" src="./NQw0dr2fBnsiJXxSviAdGsHNgLEQl2nz4oS671w7.webp" alt="">
+            </div>
+            <div class="card row-span-2"></div>
+            <div class="card">
+                <div class="title-1">
+                    <a href="#">Notizia due Lorem ipsum dolor sit amet, consectetur adipisicing elit. lore</a>
+                </div>
+                <img class="news-img-1" src="./NQw0dr2fBnsiJXxSviAdGsHNgLEQl2nz4oS671w7.webp" alt="">
+            </div>
+            <div class="card row-span-2"></div>
+            <div class="card row-span-2"></div>
+            <div class="card">
+                <div class="title-1">
+                    <a href="#">Notizia due Lorem ipsum dolor sit amet, consectetur adipisicing elit. lore</a>
+                </div>
+                <img class="news-img-1" src="./NQw0dr2fBnsiJXxSviAdGsHNgLEQl2nz4oS671w7.webp" alt="">
+            </div>
+            <div class="card">
+                <div class="title-1">
+                    <a href="#">Notizia due Lorem ipsum dolor sit amet, consectetur adipisicing elit. lore</a>
+                </div>
+                <img class="news-img-1" src="./NQw0dr2fBnsiJXxSviAdGsHNgLEQl2nz4oS671w7.webp" alt="">
+            </div>
+            <div class="card">
+                <div class="title-1">
+                    <a href="#">Notizia due Lorem ipsum dolor sit amet, consectetur adipisicing elit. lore</a>
+                </div>
+                <img class="news-img-1" src="./NQw0dr2fBnsiJXxSviAdGsHNgLEQl2nz4oS671w7.webp" alt="">
+            </div>
+        </div>
+    </div>
+
+    <!--
+<input type="button" id="shell-btn" value="Shell">
+    <input type="button" id="temp-btn" value="Weather">
+    -->
+
+
+    <footer>
+        <a class="footer-icon window-info" id="side-infos" href="#">
+            <div class="battery-infos">
+                <div class="battery-perc">
+                    100%
+                </div>
+                <div class="battery-icon">
+                    <i class='bx bxs-battery-full'>
+                    </i>
+                </div>
+            </div>
+            <div>
+                <div id="side-time">time</div>
+                <div id="side-date">...</div>
+            </div>
+
+        </a>
+    </footer>
+
+    <script src="js/shell.js"></script>
+    <script src="js/calc.js"></script>
+</body>
+
+</html>

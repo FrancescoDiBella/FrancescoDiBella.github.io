@@ -1,0 +1,271 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap');
+* {
+    font-family: "RobotoFlex", Arial, Helvetica, sans-serif;
+}
+
+html,
+body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+.news-container {
+    width: 45%;
+    position: absolute;
+    height: 92%;
+    margin-left: 12px;
+    margin-top: 12px;
+    padding: 0px;
+    padding-top: 10px;
+    padding-bottom: 0px;
+    background-color: rgba(92, 92, 92, 0.298);
+    border-radius: 20px;
+    backdrop-filter: blur(18px);
+    z-index: 99999;
+    visibility: hidden;
+}
+
+.grid-container {
+    background-color: transparent;
+    border-radius: 20px;
+    height: 85%;
+    display: grid;
+    align-items: center;
+    grid-auto-flow: row;
+    grid-auto-rows: 25%;
+    grid-auto-columns: 50%;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 15px;
+    row-gap: 15px;
+    grid-template-rows: unset;
+    overflow: scroll;
+    overflow-x: hidden;
+    padding: 50px;
+    padding-bottom: 10px;
+    margin-top: 20px;
+    margin-right: 15px;
+    margin-left: 15px;
+    scroll-snap-type: y mandatory;
+}
+
+.news-container>.time-bar {
+    top: 0px;
+    text-align: center;
+    font-size: 32px;
+    color: white;
+    margin-bottom: 20px;
+}
+
+.news-container>.search-bar {
+    padding: 0 55px 0 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.news-container>.search-bar>input {
+    width: 100%;
+    height: 35px;
+    border-radius: 3px;
+    border: none;
+    outline: none;
+    color: white;
+    background-color: rgb(35, 35, 35);
+    box-shadow: 5px 5px 5px 2px rgba(0, 0, 0, 0.147);
+    font-family: "RobotoFlex", Arial, Helvetica, sans-serif;
+}
+
+.card {
+    position: relative;
+    background-color: transparent;
+    height: 100%;
+    border-radius: 8px;
+    box-shadow: 5px 5px 5px 2px rgba(0, 0, 0, 0.15);
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: left;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    scroll-snap-align: start;
+}
+
+.card.row-span-2 {
+    grid-row: span 2
+}
+
+.card.col-span-2 {
+    grid-column: span 2;
+}
+
+.card.col-span-2.row-span-2>.title {
+    background-color: rgba(140, 138, 138, 0.472);
+    position: absolute;
+    width: calc(100%);
+    height: calc(35%);
+    font-size: 28px;
+    padding: 5%;
+    color: white;
+    transition: height 1s;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    bottom: 0;
+}
+
+.card.col-span-2.row-span-2>.title:hover {
+    width: calc(100%);
+    height: calc(100%);
+    transition: height text-overflow 0.2s;
+    overflow-y: hidden;
+    white-space: unset;
+    text-overflow: unset;
+}
+
+.card.row-span-2>.title {
+    background-color: rgba(140, 138, 138, 0.472);
+    position: absolute;
+    width: calc(100%);
+    height: calc(35%);
+    font-size: 28px;
+    padding: 5%;
+    color: white;
+    transition: height 1s;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    bottom: 0;
+}
+
+.card.row-span-2>.title:hover {
+    width: calc(100%);
+    height: calc(100%);
+    transition: height text-overflow 0.2s;
+    overflow-y: hidden;
+    white-space: unset;
+    text-overflow: unset;
+}
+
+.title>a {
+    color: white;
+}
+
+.title>a:hover {
+    text-decoration: underline;
+    color: white;
+}
+
+.card>.title-1 {
+    width: 60%;
+    height: 100%;
+    color: white;
+    overflow: hidden;
+    padding: 12px;
+    display: flex;
+    align-items: center;
+}
+
+.card>.title-1:hover {
+    position: absolute;
+    padding-right: 130px;
+    width: 100%;
+    background-color: rgba(68, 68, 68, 0.421);
+}
+
+.card>a {
+    color: white;
+}
+
+.title-1>a {
+    color: white;
+}
+
+.title-1>a:hover {
+    text-decoration: underline;
+    color: white;
+}
+
+.news-img-1 {
+    position: absolute;
+    z-index: 0;
+    width: 120px;
+    height: 120px;
+    background-color: red;
+    border-radius: 8px;
+    object-fit: cover;
+    right: 5px;
+}
+
+.news-img {
+    position: absolute;
+    z-index: 0;
+    border-radius: .5rem;
+    object-fit: cover;
+}
+
+
+/* width */
+
+ ::-webkit-scrollbar {
+    width: 7px;
+}
+
+
+/* Track */
+
+ ::-webkit-scrollbar-track {
+    box-shadow: inset 0 0 5px transparent;
+    border-radius: 10px;
+}
+
+
+/* Handle */
+
+ ::-webkit-scrollbar-thumb {
+    background: rgb(234, 234, 234);
+    border-radius: 10px;
+}
+
+
+/* Handle on hover */
+
+.animated-in {
+    animation-name: animIn;
+    animation-duration: .7s;
+    animation-delay: 0s;
+    animation-iteration-count: 1;
+    animation-fill-mode: forwards;
+    visibility: visible;
+}
+
+.animated-out {
+    animation-name: animOut;
+    animation-duration: .7s;
+    animation-delay: .2s;
+    animation-iteration-count: 1;
+    animation-fill-mode: forwards;
+    visibility: visible;
+}
+
+@keyframes animIn {
+    from {
+        transform: translateX(-800px);
+        visibility: visible;
+    }
+    to {
+        transform: translateX(0px);
+    }
+    /* slide down to make room for advertisements */
+}
+
+@keyframes animOut {
+    from {
+        transform: translateX(0px);
+    }
+    to {
+        transform: translateX(-1200px);
+        visibility: hidden;
+    }
+    /* slide down to make room for advertisements */
+}

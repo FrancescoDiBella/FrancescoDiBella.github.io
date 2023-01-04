@@ -1,0 +1,139 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap');
+.timer-cont {
+    box-sizing: border-box;
+    position: absolute;
+    margin-top: 0;
+    margin-left: 0;
+    min-width: 430px;
+    min-height: 450px;
+    max-width: 100%;
+    max-height: 100%;
+    overflow: hidden;
+    resize: both;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    border-top: 1px solid rgba(124, 124, 124, 0.831);
+    border-left: 1px solid rgba(124, 124, 124, 0.831);
+    border-top: 1px solid rgba(124, 124, 124, 0.831);
+    border-radius: 8px;
+    background: linear-gradient(45deg, #F17C58, #ff619e, #7f3da5, #372fa9, #25a1a1, #21913f);
+    background-size: 600% 100%;
+    animation: gradientt 16s linear infinite;
+    animation-direction: alternate;
+}
+
+@keyframes gradientt {
+    0% {
+        background-position: 0%
+    }
+    100% {
+        background-position: 100%
+    }
+}
+
+.timer-cont>.windows-bar {
+    top: 0px;
+    position: absolute;
+    margin: 0px;
+    border: none;
+    width: 100%;
+    background-color: rgb(0, 0, 0);
+    border-top: 1px solid rgba(124, 124, 124, 0.831);
+    border-left: 1px solid rgba(124, 124, 124, 0.831);
+    border-top: 1px solid rgba(124, 124, 124, 0.831);
+    border-radius: 8px 8px 0 0;
+    z-index: 1;
+    font-family: 'Poppins', sans-serif;
+}
+
+.timer-cont>.shell-bar-username {
+    font-family: 'Poppins', sans-serif;
+}
+
+.timer-cont .timer-flex {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.out {
+    height: 350px;
+    width: 350px;
+    border-radius: 50%;
+    box-shadow: 6px 6px 10px rgba(0, 0, 0, 0.15), -6px -6px 10px rgba(255, 255, 255, 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.in {
+    height: 320px;
+    width: 320px;
+    border-radius: 50%;
+    margin: 0px;
+    box-shadow: inset 6px 6px 10px rgba(0, 0, 0, 0.15), inset -6px -6px 10px rgba(255, 255, 255, 0.15);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    background: linear-gradient(45deg, #F17C58, #E94584, #9824db, #3327db, #18ffff, #06ff48);
+    background-size: 600% 100%;
+    animation: gradientt 16s linear infinite;
+    animation-direction: alternate;
+}
+
+.number {
+    height: 50px;
+    width: 90%;
+    font-size: 40px;
+    font-weight: 600;
+    color: black;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.timer-input {
+    font-family: 'Poppins', sans-serif;
+    height: 80px;
+    width: 100px;
+    font-size: 45px;
+    text-align: center;
+    color: white;
+    background-color: transparent;
+    border: none;
+    outline: 1px solid rgba(240, 248, 255, 0.317);
+    background-color: rgba(240, 248, 255, 0.057);
+    border-radius: 18px;
+}
+
+.timer-del-button {
+    color: white;
+    font-size: 12px;
+    width: 50px;
+    height: 50px;
+    border-radius: 25%;
+    border: 1px solid rgba(110, 110, 110, 0.664);
+    background-color: rgba(110, 18, 20, 0.603);
+    box-shadow: 2px 2px 2px 2px rgba(0, 0, 0, 0.15);
+}
+
+.timer-button {
+    color: white;
+    font-size: large;
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    border: 1px solid rgba(19, 6, 33, 0.664);
+    background-color: rgba(40, 18, 110, 0.603);
+    box-shadow: 2px 2px 2px 2px rgba(0, 0, 0, 0.15);
+}
+
+.timer-button:hover {
+    cursor: pointer;
+}
