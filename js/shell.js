@@ -736,7 +736,7 @@ document.addEventListener("mousedown", (e) => {
 })
 
 function fetchWeatherData(window, cityName) {
-    fetch('http://api.weatherapi.com/v1/current.json?key=aef20d8493d94896a82134458222905&q=' + cityName + '&aqi=no&lang=it')
+    fetch('https://api.weatherapi.com/v1/current.json?key=aef20d8493d94896a82134458222905&q=' + cityName + '&aqi=no&lang=it')
         .then(response => response.json())
         .then((data) => {
             console.log(data);
