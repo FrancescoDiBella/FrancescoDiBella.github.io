@@ -1,6 +1,6 @@
 {
 	"@context": {
-		"ar": "https://francescodibella.github.io/ngsi-ld-ar-context-v0.1.jsonld/blob/main",
+		"ar": "https://francescodibella.github.io/ngsi-ld-ar-context-v0.1.jsonld/blob/main/",
 		"prop1": "ar:prop1"
 	}
 }
