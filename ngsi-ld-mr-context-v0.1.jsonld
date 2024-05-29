@@ -1,0 +1,12 @@
+{
+	"@context": [
+    {
+		"vr": "https://francescodibella.github.io/ngsi-ld-vr-context-v0.1.jsonld/blob/main/",
+		"prop1": "vr:prop1"
+	  },
+    {
+		"ar": "https://francescodibella.github.io/ngsi-ld-ar-context-v0.1.jsonld/blob/main/",
+		"prop1": "ar:prop1"
+	  }
+  ]
+}
