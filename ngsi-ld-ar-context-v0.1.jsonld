@@ -1,0 +1,6 @@
+{
+	"@context": {
+		"ar": "https://github.com/FrancescoDiBella/ngsi-ld_d6/ar/blob/main/",
+		"prop1": "ar:prop1"
+	}
+}
