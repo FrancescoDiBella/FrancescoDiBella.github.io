@@ -2,11 +2,15 @@
 	"@context": [
     {
 		"nms1": "https://francescodibella.github.io/nms1.jsonld/blob/main/",
-		"max": "nms1:max"
+		"max": "nms1:max",
+	    	"success": "nms1:success",
+	    	"prop1": "nms1:prop1"
 	  },
     {
 		"nms2": "https://francescodibella.github.io/nms2.jsonld/blob/main/",
-		"max": "nms2:max"
+		"max": "nms2:max",
+	    	"success": "nms2:success",
+	    	"prop1": "nms2:prop1"
 	  }
   ]
 }
