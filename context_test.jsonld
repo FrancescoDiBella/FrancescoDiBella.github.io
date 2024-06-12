@@ -1,0 +1,12 @@
+{
+	"@context": [
+    {
+		"nms1": "https://francescodibella.github.io/nms1.jsonld/blob/main/",
+		"max": "nms1:max"
+	  },
+    {
+		"nms2": "https://francescodibella.github.io/nms2.jsonld/blob/main/",
+		"max": "nms2:max"
+	  }
+  ]
+}
