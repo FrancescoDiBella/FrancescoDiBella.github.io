@@ -1,0 +1,14 @@
+[package]
+name = "repohub-server"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "Serves the RepoHub web build and proxies the GitHub API, keeping the token server-side."
+
+[dependencies]
+tiny_http = "0.12"
+ureq = { version = "2.12", default-features = false, features = ["tls", "native-certs", "proxy-from-env"] }
+
+[profile.release]
+strip = true
+lto = "thin"

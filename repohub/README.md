@@ -1,15 +1,65 @@
 # RepoHub
 
 Gestore dei propri repository GitHub scritto in Rust con [Rune](https://github.com/anomalyco/rune)
-e `rune-kit`.
+e `rune-kit`. Legge i dati veri dalle API REST di GitHub (profilo, repository, file, README,
+linguaggi, ultimo commit, pull request, issue, esecuzioni di Actions, commit settimanali) e
+permette di mettere o togliere stelle.
 
-- **App desktop:** legge i dati veri dalle API REST di GitHub (profilo, repository, file, README,
-  linguaggi, ultimo commit, pull request, issue, esecuzioni di Actions, commit settimanali) e
-  permette di mettere o togliere stelle. Si configura con un file `.env`.
-- **Versione web** (`web/`, pubblicata su `/repohub/web/`): mostra i dati di esempio. Un token
-  dentro una pagina web pubblica sarebbe visibile a chiunque, quindi lì non c'è nessuna connessione.
+Tre modi di usarla:
 
-## Provarla in locale con i tuoi dati
+| | Cosa serve | Dati |
+| --- | --- | --- |
+| **Docker** (consigliato) | solo Docker e un browser con WebGPU | i tuoi, dal file `.env` |
+| **App desktop** | Rust | i tuoi, dal file `.env` |
+| **Pagina statica** `/repohub/web/` su GitHub Pages | un browser con WebGPU | solo di esempio |
+
+## Docker
+
+Non serve installare altro che [Docker](https://docs.docker.com/get-docker/) (Docker Desktop su
+Windows e macOS).
+
+```sh
+git clone https://github.com/FrancescoDiBella/FrancescoDiBella.github.io
+cd FrancescoDiBella.github.io/repohub
+cp .env.example .env          # su Windows: copy .env.example .env — poi compila GITHUB_USER e/o GITHUB_TOKEN
+docker compose up --build     # la prima volta compila tutto: 10-20 minuti
+```
+
+Poi apri **http://localhost:8080** con Chrome o Edge (serve WebGPU). `Ctrl+C` lo ferma,
+`docker compose up -d` lo avvia in background, `docker compose down` lo spegne.
+
+Dopo aver cambiato il `.env` basta `docker compose up -d --force-recreate`: non serve ricompilare.
+
+### Come funziona e perché il token è al sicuro
+
+Il container contiene due cose:
+- la versione web di RepoHub (Rust compilato in WebAssembly);
+- `repohub-server`, un piccolo server che serve la pagina e inoltra le chiamate a GitHub
+  aggiungendo il token.
+
+- Il token resta dentro il container: la pagina non lo riceve mai. `config.json` dice solo se un
+  token c'è.
+- La porta è pubblicata solo su questo computer (`127.0.0.1:8080`).
+- Il server inoltra solo le chiamate che RepoHub usa: lettura, e scrittura solo per le stelle.
+- Il server rifiuta le richieste che arrivano da altri siti o da nomi host estranei.
+- Per aprirlo da un altro dispositivo della tua rete devi cambiare `ports` in `compose.yaml` e
+  aggiungere il nome host a `REPOHUB_ALLOWED_HOSTS`. Fallo solo su una rete di cui ti fidi:
+  chiunque raggiunga la porta usa il tuo token.
+
+### Immagine già pronta (facoltativo)
+
+La GitHub Action `.github/workflows/repohub-image.yml` pubblica l'immagine su
+`ghcr.io/francescodibella/repohub` a ogni modifica di `repohub/` su `main`. Con l'immagine
+pubblicata non serve compilare nulla:
+
+```sh
+docker run --rm --env-file .env -p 127.0.0.1:8080:8080 ghcr.io/francescodibella/repohub
+```
+
+Il primo pacchetto creato su GHCR è privato. Rendilo pubblico da GitHub → profilo → Packages →
+repohub → Package settings, oppure esegui prima `docker login ghcr.io`.
+
+## App desktop
 
 Serve [Rust](https://rustup.rs). Su Linux servono anche `libxkbcommon-dev` e `libwayland-dev`.
 
@@ -19,9 +69,9 @@ cp .env.example .env      # poi apri .env e compila GITHUB_USER e/o GITHUB_TOKEN
 cargo run --release       # la prima compilazione richiede qualche minuto
 ```
 
-Il file `.env` è escluso da git (`.gitignore`): non va mai committato.
+## Configurazione (`.env`)
 
-Configurazioni minime:
+Il file `.env` è escluso da git (`.gitignore`) e da Docker (`.dockerignore`): non va mai committato.
 
 ```sh
 # Solo dati pubblici (60 richieste API l'ora, nessun repository privato)
@@ -36,10 +86,11 @@ Tutte le opzioni, con i permessi consigliati per il token, sono spiegate in
 di repository, da quanti repository leggere Actions e attività, modalità demo, URL per GitHub
 Enterprise.
 
-- Le variabili d'ambiente già impostate hanno la precedenza sul file, come di consueto.
-  Attenzione se hai già un `GITHUB_TOKEN` esportato nella shell.
-- `REPOHUB_ENV=/percorso/altro.env` usa un file diverso. Senza, il `.env` viene cercato nella
-  cartella corrente e in quelle superiori.
+- Le variabili d'ambiente già impostate hanno la precedenza sul file. Attenzione se hai già un
+  `GITHUB_TOKEN` esportato nella shell (vale per l'app desktop).
+- Solo per l'app desktop: `REPOHUB_ENV=/percorso/altro.env` usa un file diverso. Senza, il `.env`
+  viene cercato nella cartella corrente e in quelle superiori.
+- Solo per Docker: `REPOHUB_ALLOWED_HOSTS` aggiunge nomi host consentiti oltre a `localhost`.
 
 ## Cosa fa con i dati
 
@@ -67,9 +118,19 @@ cargo test --release                                       # test di parser .env
 REPOHUB_BLOCKING=1 target/release/repo-hub --snap out.png -- page repos   # screenshot headless con dati veri
 ```
 
-`src/`: `lib.rs` (stato, caricamento in background, shell), `config.rs` (`.env`),
-`github.rs` (client REST), `model.rs` (modello dati e dati di esempio), `pages.rs` e `lists.rs`
-(pagine), `ui.rs`, `icons.rs`.
+`src/`: `lib.rs` (stato, shell), `config.rs` (`.env` e `config.json`), `github.rs` (client
+REST, comune a desktop e web), `net.rs` (trasporto: `ureq` sul desktop, `fetch` verso il proxy
+sul web), `model.rs` (modello dati e dati di esempio), `pages.rs` e `lists.rs` (pagine), `ui.rs`,
+`icons.rs`. `server/`: `repohub-server` (file statici, `config.json`, proxy `/gh/*`).
 
-Per ricompilare `web/` servono il target `wasm32-unknown-unknown` e `wasm-bindgen-cli 0.2.129`.
-Si usa `scripts/web-build.sh` dal checkout di Rune, con il crate aggiunto al suo workspace.
+Provare la versione web con il server senza Docker:
+
+```sh
+cargo run --release --manifest-path server/Cargo.toml   # legge le variabili dall'ambiente
+# WEB_DIR=web (default) · REPOHUB_ADDR=127.0.0.1:8080 (default)
+```
+
+Per ricompilare `web/` a mano servono il target `wasm32-unknown-unknown` e
+`wasm-bindgen-cli 0.2.129`. I comandi sono quelli del `Dockerfile`:
+`cargo build --release --lib --target wasm32-unknown-unknown`, poi
+`wasm-bindgen --target web --out-dir web --out-name app target/wasm32-unknown-unknown/release/repo_hub.wasm`.

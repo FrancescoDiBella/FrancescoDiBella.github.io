@@ -1,8 +1,9 @@
 //! RepoHub: a personal GitHub repository manager built with Rune and rune-kit.
 //!
-//! On the desktop it reads your repositories, pull requests, issues and workflow runs from the
-//! GitHub REST API, configured through a `.env` file (see `.env.example`). Without a
-//! configuration, and on the web build, it shows built-in sample data.
+//! It reads your repositories, pull requests, issues and workflow runs from the GitHub REST API.
+//! The desktop app is configured by a `.env` file (see `.env.example`); the web build gets its
+//! configuration and a token-adding proxy from `repohub-server` (the Docker image). Without either
+//! it shows built-in sample data.
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -11,11 +12,11 @@ use rune_kit::shell::{self, PaneState, Sidebar, SidebarRow, SidebarSection, Side
 use rune_kit::{ControlSize, IconButton, IconButtonVariant, Kit, PaletteSeed};
 
 mod config;
-#[cfg(not(target_arch = "wasm32"))]
 mod github;
 mod icons;
 mod lists;
 mod model;
+mod net;
 mod pages;
 mod ui;
 
@@ -72,19 +73,15 @@ impl App {
         self.load_detail(i);
     }
 
-    /// Reloads everything from GitHub on a worker thread.
+    /// Reloads everything from GitHub in the background.
     fn refresh(&mut self) {
         if !self.cfg.live() || self.status == Status::Loading {
             return;
         }
         self.status = Status::Loading;
-        #[cfg(not(target_arch = "wasm32"))]
         if let Some(h) = self.handle.clone() {
             let cfg = self.cfg.clone();
-            std::thread::spawn(move || {
-                let result = github::load_all(&cfg);
-                h.update(move |s: &mut App, _| s.apply(result));
-            });
+            net::spawn(h, move || async move { github::load_all(&cfg).await }, |s: &mut App, r| s.apply(r));
         }
     }
 
@@ -114,14 +111,11 @@ impl App {
             return;
         }
         self.details.insert(full.clone(), Detail { loading: true, ..Default::default() });
-        #[cfg(not(target_arch = "wasm32"))]
         if let Some(h) = self.handle.clone() {
             let cfg = self.cfg.clone();
-            std::thread::spawn(move || {
-                let d = github::load_detail(&cfg, &full);
-                h.update(move |s: &mut App, _| {
-                    s.details.insert(full, d);
-                });
+            let key = full.clone();
+            net::spawn(h, move || async move { github::load_detail(&cfg, &full).await }, move |s: &mut App, d| {
+                s.details.insert(key, d);
             });
         }
     }
@@ -138,18 +132,16 @@ impl App {
             }
             return;
         }
-        #[cfg(not(target_arch = "wasm32"))]
         if let Some(h) = self.handle.clone() {
             let (cfg, full) = (self.cfg.clone(), r.full_name.clone());
-            std::thread::spawn(move || {
-                if let Err(e) = github::set_star(&cfg, &full, on) {
-                    h.update(move |s: &mut App, _| {
-                        if let Some(r) = s.data.repos.iter_mut().find(|r| r.full_name == full) {
-                            r.starred = !on;
-                            r.stars = if on { r.stars.saturating_sub(1) } else { r.stars + 1 };
-                        }
-                        s.toast = Some(format!("Non sono riuscito a cambiare la stella: {e}"));
-                    });
+            let key = full.clone();
+            net::spawn(h, move || async move { github::set_star(&cfg, &full, on).await }, move |s: &mut App, res| {
+                if let Err(e) = res {
+                    if let Some(r) = s.data.repos.iter_mut().find(|r| r.full_name == key) {
+                        r.starred = !on;
+                        r.stars = if on { r.stars.saturating_sub(1) } else { r.stars + 1 };
+                    }
+                    s.toast = Some(format!("Non sono riuscito a cambiare la stella: {e}"));
                 }
             });
         }
@@ -185,13 +177,13 @@ fn init() -> App {
     // `REPOHUB_BLOCKING=1` loads synchronously before the first frame (headless snapshots).
     #[cfg(not(target_arch = "wasm32"))]
     if live && std::env::var("REPOHUB_BLOCKING").is_ok_and(|v| v == "1") {
-        let r = github::load_all(&s.cfg);
+        let r = pollster::block_on(github::load_all(&s.cfg));
         s.apply(r);
         if let Some(i) = arg("page").filter(|p| p == "repo").map(|_| 0)
             && let Some(r) = s.data.repos.get(i)
         {
             let full = r.full_name.clone();
-            s.details.insert(full.clone(), github::load_detail(&s.cfg, &full));
+            s.details.insert(full.clone(), pollster::block_on(github::load_detail(&s.cfg, &full)));
         }
     }
     // `-- page repos|repo|pulls|issues|actions|settings` opens a page (for headless stills).
@@ -288,7 +280,7 @@ fn banner(s: &App, k: &Kit) -> Option<El> {
     let (msg, tint, action) = match &s.status {
         Status::Loading => ("Caricamento dei dati da GitHub…".to_owned(), k.c.info.icon, false),
         Status::Error(e) => (e.clone(), k.c.danger.icon, true),
-        Status::Sample if !s.cfg.demo => ("Dati di esempio. Per vedere i tuoi repository crea un file .env con GITHUB_USER o GITHUB_TOKEN (vedi .env.example) e avvia l'app desktop.".to_owned(), k.c.warning.icon, false),
+        Status::Sample if !s.cfg.demo => ("Dati di esempio. Per vedere i tuoi repository crea un file .env con GITHUB_USER o GITHUB_TOKEN (vedi .env.example) e avvia RepoHub con Docker o come app desktop.".to_owned(), k.c.warning.icon, false),
         _ => return None,
     };
     let mut r = row().w_full().px(14.0).py(10.0).gap(10.0).center_y().radius(k.radius.lg)
@@ -366,11 +358,24 @@ pub fn start() {
     let handle = app.handle();
     let h2 = handle.clone();
     handle.update(move |s: &mut App, _| {
-        s.handle = Some(h2);
+        s.handle = Some(h2.clone());
         if s.status == Status::Loading && s.data.repos.is_empty() {
             s.status = Status::Ready; // let refresh() start the first load
             s.refresh();
         }
+        // The web build asks repohub-server for its configuration; a static host has none.
+        #[cfg(target_arch = "wasm32")]
+        net::spawn(h2, || net::fetch_config(), |s: &mut App, cfg| {
+            if let Some(cfg) = cfg.filter(|c| c.live()) {
+                if cfg.theme == Some(true) {
+                    s.prefs[0] = true;
+                }
+                s.cfg = Arc::new(cfg);
+                s.data = Data::default();
+                s.status = Status::Ready;
+                s.refresh();
+            }
+        });
     });
     app.run();
 }

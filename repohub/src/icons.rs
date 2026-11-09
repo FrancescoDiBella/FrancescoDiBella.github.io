@@ -1,4 +1,5 @@
 //! 16-point line icons drawn for this app (stroke = currentColor).
+#![allow(dead_code)]
 use rune::Icon;
 
 macro_rules! icon {

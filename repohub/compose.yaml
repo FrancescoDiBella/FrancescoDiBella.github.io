@@ -1,0 +1,13 @@
+# docker compose up --build   →   http://localhost:8080
+services:
+  repohub:
+    build: .
+    image: repohub:latest
+    # Your settings and token (see .env.example). The token stays inside the container.
+    env_file:
+      - path: .env
+        required: false
+    # Published on this computer only: the server holds your token, so don't expose it to the network.
+    ports:
+      - "127.0.0.1:8080:8080"
+    restart: unless-stopped

@@ -1,0 +1,7 @@
+target/
+server/target/
+.env
+.env.*
+!.env.example
+web/*
+!web/index.html

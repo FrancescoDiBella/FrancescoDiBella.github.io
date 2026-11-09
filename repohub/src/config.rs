@@ -147,13 +147,52 @@ impl Config {
 
     /// True when the app should read from GitHub instead of showing the sample data.
     pub fn live(&self) -> bool {
-        !self.demo && cfg!(not(target_arch = "wasm32")) && (self.token.is_some() || self.user.is_some())
+        !self.demo && (self.token.is_some() || self.user.is_some())
+    }
+
+    /// The web build's configuration, as `repohub-server` publishes it in `config.json`. It never
+    /// contains the token, only whether the server has one (`hasToken`).
+    #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
+    pub fn from_json(src: &str) -> Option<Config> {
+        let v: serde_json::Value = serde_json::from_str(src).ok()?;
+        let st = |k: &str| v.get(k).and_then(|x| x.as_str()).map(str::to_owned).filter(|x| !x.is_empty());
+        let bo = |k: &str, d: bool| v.get(k).and_then(|x| x.as_bool()).unwrap_or(d);
+        let nu = |k: &str, d: usize| v.get(k).and_then(|x| x.as_u64()).map(|x| x as usize).unwrap_or(d);
+        Some(Config {
+            // A marker, not a secret: the server adds the real token to proxied requests.
+            token: bo("hasToken", false).then(|| "server".to_owned()),
+            user: st("user"),
+            api: st("api").unwrap_or_else(|| "https://api.github.com".into()),
+            title: st("title").unwrap_or_else(|| "RepoHub".into()),
+            theme: match st("theme").as_deref() {
+                Some("dark") => Some(true),
+                Some("light") => Some(false),
+                _ => None,
+            },
+            pinned: v.get("pinned").and_then(|p| p.as_array()).map(|a| a.iter().filter_map(|x| x.as_str().map(str::to_owned)).collect()).unwrap_or_default(),
+            include_forks: bo("includeForks", true),
+            include_archived: bo("includeArchived", false),
+            max_repos: nu("maxRepos", 100).clamp(1, 1000),
+            activity_repos: nu("activityRepos", 5).clamp(0, 20),
+            demo: bo("demo", false),
+            env_file: Some("gestito da repohub-server (Docker)".into()),
+        })
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::parse_env;
+    use super::{Config, parse_env};
+
+    #[test]
+    fn web_config() {
+        let c = Config::from_json(r#"{"user":"octocat","hasToken":true,"pinned":["a","b"],"theme":"dark","maxRepos":20}"#).unwrap();
+        assert_eq!(c.user.as_deref(), Some("octocat"));
+        assert!(c.live() && c.token.is_some());
+        assert_eq!(c.pinned, vec!["a", "b"]);
+        assert_eq!((c.theme, c.max_repos), (Some(true), 20));
+        assert!(!Config::from_json(r#"{"hasToken":false}"#).unwrap().live());
+    }
 
     #[test]
     fn env_lines() {

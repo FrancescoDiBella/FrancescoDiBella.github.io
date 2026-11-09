@@ -1,19 +1,19 @@
-//! GitHub REST API client (desktop builds only). Runs on worker threads; the UI applies results
-//! through `AppHandle::update`.
+//! GitHub REST API client, shared by the desktop and web builds. Requests go through
+//! [`net::Transport`]; the functions here are async and run in the background (see `net::spawn`).
 use std::collections::HashSet;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde_json::Value;
 
 use crate::config::Config;
+use crate::net::{self, Resp, Transport};
 use crate::model::{Checks, Commit, Data, Detail, Issue, Profile, Pull, PullState, Repo, Run, ago, duration, hex_hue, lang_hue, parse_iso};
 
 pub struct Gh {
-    agent: ureq::Agent,
-    api: String,
-    token: Option<String>,
+    t: Transport,
     now: i64,
 }
+
+const JSON: &str = "application/vnd.github+json";
 
 fn s(v: &Value, k: &str) -> String {
     v.get(k).and_then(Value::as_str).unwrap_or("").to_owned()
@@ -35,57 +35,38 @@ fn repo_from_url(url: &str) -> String {
 
 impl Gh {
     pub fn new(cfg: &Config) -> Gh {
-        let agent = ureq::AgentBuilder::new()
-            .try_proxy_from_env(!bypass_proxy(&cfg.api))
-            .timeout(std::time::Duration::from_secs(20))
-            .user_agent("RepoHub (Rune)")
-            .build();
-        let now = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or(0);
-        Gh { agent, api: cfg.api.clone(), token: cfg.token.clone(), now }
+        Gh { t: Transport::new(cfg), now: net::now() }
     }
 
-    fn req(&self, method: &str, path: &str) -> ureq::Request {
-        let url = if path.starts_with("http") { path.to_owned() } else { format!("{}{}", self.api, path) };
-        let mut r = self.agent.request(method, &url)
-            .set("Accept", "application/vnd.github+json")
-            .set("X-GitHub-Api-Version", "2022-11-28");
-        if let Some(t) = &self.token {
-            r = r.set("Authorization", &format!("Bearer {t}"));
-        }
-        r
-    }
-
-    fn explain(code: u16, resp: ureq::Response) -> String {
-        let remaining = resp.header("x-ratelimit-remaining").map(str::to_owned);
-        let reset = resp.header("x-ratelimit-reset").and_then(|v| v.parse::<i64>().ok());
-        let msg = resp.into_json::<Value>().ok().map(|v| s(&v, "message")).unwrap_or_default();
-        match code {
+    fn explain(&self, r: &Resp) -> String {
+        let msg = serde_json::from_str::<Value>(&r.body).ok().map(|v| s(&v, "message")).unwrap_or_default();
+        match r.status {
             401 => "GitHub ha rifiutato il token (401): controlla GITHUB_TOKEN nel file .env.".into(),
-            403 | 429 if remaining.as_deref() == Some("0") => {
-                let when = reset.map(|r| format!(" Riprova tra {} minuti.", ((r - now_secs()) / 60).max(1))).unwrap_or_default();
+            403 | 429 if r.remaining.as_deref() == Some("0") => {
+                let when = r.reset.map(|t| format!(" Riprova tra {} minuti.", ((t - self.now) / 60).max(1))).unwrap_or_default();
                 format!("Limite di richieste API raggiunto.{when} Con GITHUB_TOKEN il limite sale a 5000 richieste l'ora.")
             }
             404 => format!("Non trovato (404): {msg}. Controlla GITHUB_USER o i permessi del token."),
-            _ if msg.is_empty() => format!("Errore GitHub {code} dall'API."),
-            _ => format!("Errore GitHub {code}: {msg}"),
+            code if msg.is_empty() => format!("Errore GitHub {code} dall'API."),
+            code => format!("Errore GitHub {code}: {msg}"),
         }
     }
 
-    fn get(&self, path: &str) -> Result<Value, String> {
-        match self.req("GET", path).call() {
-            Ok(r) if r.status() == 202 || r.status() == 204 => Ok(Value::Null),
-            Ok(r) => r.into_json::<Value>().map_err(|e| format!("Risposta non valida da GitHub: {e}")),
-            Err(ureq::Error::Status(code, r)) => Err(Self::explain(code, r)),
-            Err(e) => Err(format!("Impossibile raggiungere {}: {e}", self.api)),
+    async fn get(&self, path: &str) -> Result<Value, String> {
+        let r = self.t.send("GET", path, JSON).await?;
+        match r.status {
+            202 | 204 => Ok(Value::Null),
+            200..=299 => serde_json::from_str(&r.body).map_err(|e| format!("Risposta non valida da GitHub: {e}")),
+            _ => Err(self.explain(&r)),
         }
     }
 
-    fn get_raw(&self, path: &str) -> Result<Option<String>, String> {
-        match self.req("GET", path).set("Accept", "application/vnd.github.raw+json").call() {
-            Ok(r) => r.into_string().map(Some).map_err(|e| e.to_string()),
-            Err(ureq::Error::Status(404, _)) => Ok(None),
-            Err(ureq::Error::Status(code, r)) => Err(Self::explain(code, r)),
-            Err(e) => Err(e.to_string()),
+    async fn get_raw(&self, path: &str) -> Result<Option<String>, String> {
+        let r = self.t.send("GET", path, "application/vnd.github.raw+json").await?;
+        match r.status {
+            200..=299 => Ok(Some(r.body)),
+            404 => Ok(None),
+            _ => Err(self.explain(&r)),
         }
     }
 
@@ -93,20 +74,22 @@ impl Gh {
         parse_iso(iso).map(|t| ago(t, self.now)).unwrap_or_default()
     }
 
-    pub fn profile(&self, cfg: &Config) -> Result<Profile, String> {
-        let v = match (&cfg.user, &self.token) {
-            (Some(u), _) => self.get(&format!("/users/{u}"))?,
-            (None, Some(_)) => self.get("/user")?,
-            (None, None) => return Err("Imposta GITHUB_USER o GITHUB_TOKEN nel file .env.".into()),
+    pub async fn profile(&self, cfg: &Config) -> Result<Profile, String> {
+        let v = match (&cfg.user, self.t.has_token()) {
+            (Some(u), _) => self.get(&format!("/users/{u}")).await?,
+            (None, true) => self.get("/user").await?,
+            (None, false) => return Err("Imposta GITHUB_USER o GITHUB_TOKEN nel file .env.".into()),
         };
         let login = s(&v, "login");
         let name = Some(s(&v, "name")).filter(|x| !x.is_empty()).unwrap_or_else(|| login.clone());
         Ok(Profile { login, name, bio: s(&v, "bio") })
     }
 
-    fn viewer_login(&self) -> Option<String> {
-        self.token.as_ref()?;
-        self.get("/user").ok().map(|v| s(&v, "login"))
+    async fn viewer_login(&self) -> Option<String> {
+        if !self.t.has_token() {
+            return None;
+        }
+        self.get("/user").await.ok().map(|v| s(&v, "login"))
     }
 
     fn repo(&self, v: &Value, starred: &HashSet<String>) -> Repo {
@@ -133,9 +116,9 @@ impl Gh {
         }
     }
 
-    pub fn repos(&self, cfg: &Config, login: &str, own: bool) -> Result<Vec<Repo>, String> {
-        let starred: HashSet<String> = if self.token.is_some() {
-            self.get("/user/starred?per_page=100").ok().and_then(|v| v.as_array().cloned()).unwrap_or_default()
+    pub async fn repos(&self, cfg: &Config, login: &str, own: bool) -> Result<Vec<Repo>, String> {
+        let starred: HashSet<String> = if self.t.has_token() {
+            self.get("/user/starred?per_page=100").await.ok().and_then(|v| v.as_array().cloned()).unwrap_or_default()
                 .iter().map(|r| s(r, "full_name")).collect()
         } else {
             HashSet::new()
@@ -149,7 +132,7 @@ impl Gh {
             } else {
                 format!("/users/{login}/repos?type=owner&sort=pushed&per_page=100&page={page}")
             };
-            let v = self.get(&path)?;
+            let v = self.get(&path).await?;
             let items = v.as_array().cloned().unwrap_or_default();
             let done = items.len() < 100;
             for r in &items {
@@ -167,14 +150,14 @@ impl Gh {
         Ok(out)
     }
 
-    fn search(&self, q: &str) -> Vec<Value> {
+    async fn search(&self, q: &str) -> Vec<Value> {
         let q = q.replace(' ', "+").replace(':', "%3A");
-        self.get(&format!("/search/issues?q={q}&sort=updated&order=desc&per_page=40"))
+        self.get(&format!("/search/issues?q={q}&sort=updated&order=desc&per_page=40")).await
             .ok().and_then(|v| v.get("items").and_then(Value::as_array).cloned()).unwrap_or_default()
     }
 
-    pub fn pulls(&self, login: &str) -> Vec<Pull> {
-        self.search(&format!("is:pr involves:{login}")).iter().map(|v| {
+    pub async fn pulls(&self, login: &str) -> Vec<Pull> {
+        self.search(&format!("is:pr involves:{login}")).await.iter().map(|v| {
             let merged = v.get("pull_request").and_then(|p| p.get("merged_at")).is_some_and(|m| !m.is_null());
             let state = if merged { PullState::Merged } else if s(v, "state") == "closed" { PullState::Closed } else if b(v, "draft") { PullState::Draft } else { PullState::Open };
             Pull {
@@ -191,8 +174,8 @@ impl Gh {
         }).collect()
     }
 
-    pub fn issues(&self, login: &str) -> Vec<Issue> {
-        self.search(&format!("is:issue is:open archived:false user:{login}")).iter().map(|v| Issue {
+    pub async fn issues(&self, login: &str) -> Vec<Issue> {
+        self.search(&format!("is:issue is:open archived:false user:{login}")).await.iter().map(|v| Issue {
             number: n(v, "number"),
             title: s(v, "title"),
             repo: repo_from_url(&s(v, "repository_url")),
@@ -203,8 +186,8 @@ impl Gh {
         }).collect()
     }
 
-    pub fn runs(&self, full: &str) -> Vec<Run> {
-        let v = self.get(&format!("/repos/{full}/actions/runs?per_page=4")).unwrap_or(Value::Null);
+    pub async fn runs(&self, full: &str) -> Vec<Run> {
+        let v = self.get(&format!("/repos/{full}/actions/runs?per_page=4")).await.unwrap_or(Value::Null);
         v.get("workflow_runs").and_then(Value::as_array).cloned().unwrap_or_default().iter().map(|r| {
             let checks = match (s(r, "status").as_str(), s(r, "conclusion").as_str()) {
                 ("completed", "success" | "skipped" | "neutral") => Checks::Passing,
@@ -230,15 +213,15 @@ impl Gh {
     }
 
     /// The owner's commits per week over the last 26 weeks (zeros while GitHub computes them).
-    pub fn participation(&self, full: &str) -> Vec<u32> {
-        let v = self.get(&format!("/repos/{full}/stats/participation")).unwrap_or(Value::Null);
+    pub async fn participation(&self, full: &str) -> Vec<u32> {
+        let v = self.get(&format!("/repos/{full}/stats/participation")).await.unwrap_or(Value::Null);
         let weeks: Vec<u32> = v.get("owner").and_then(Value::as_array).map(|a| a.iter().map(|x| x.as_u64().unwrap_or(0) as u32).collect()).unwrap_or_default();
         if weeks.len() >= 26 { weeks[weeks.len() - 26..].to_vec() } else { vec![0; 26] }
     }
 
-    pub fn detail(&self, full: &str) -> Detail {
+    pub async fn detail(&self, full: &str) -> Detail {
         let mut d = Detail::default();
-        match self.get(&format!("/repos/{full}/contents")) {
+        match self.get(&format!("/repos/{full}/contents")).await {
             Ok(v) => {
                 let mut files: Vec<(String, bool)> = v.as_array().cloned().unwrap_or_default().iter().map(|f| (s(f, "name"), s(f, "type") == "dir")).collect();
                 files.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.to_lowercase().cmp(&b.0.to_lowercase())));
@@ -246,13 +229,13 @@ impl Gh {
             }
             Err(e) => d.error = Some(e),
         }
-        d.readme = self.get_raw(&format!("/repos/{full}/readme")).ok().flatten().map(|t| t.chars().take(4000).collect());
-        if let Ok(v) = self.get(&format!("/repos/{full}/languages")) {
+        d.readme = self.get_raw(&format!("/repos/{full}/readme")).await.ok().flatten().map(|t| t.chars().take(4000).collect());
+        if let Ok(v) = self.get(&format!("/repos/{full}/languages")).await {
             let mut langs: Vec<(String, u64)> = v.as_object().map(|o| o.iter().map(|(k, v)| (k.clone(), v.as_u64().unwrap_or(0))).collect()).unwrap_or_default();
             langs.sort_by(|a, b| b.1.cmp(&a.1));
             d.languages = langs;
         }
-        if let Ok(v) = self.get(&format!("/repos/{full}/commits?per_page=1"))
+        if let Ok(v) = self.get(&format!("/repos/{full}/commits?per_page=1")).await
             && let Some(c) = v.as_array().and_then(|a| a.first())
         {
             let commit = c.get("commit").cloned().unwrap_or(Value::Null);
@@ -267,59 +250,42 @@ impl Gh {
         d
     }
 
-    pub fn set_star(&self, full: &str, on: bool) -> Result<(), String> {
-        let r = self.req(if on { "PUT" } else { "DELETE" }, &format!("/user/starred/{full}")).set("Content-Length", "0");
-        let r = if on { r.send_string("") } else { r.call() };
-        match r {
-            Ok(_) => Ok(()),
-            Err(ureq::Error::Status(code, resp)) => Err(Self::explain(code, resp)),
-            Err(e) => Err(e.to_string()),
-        }
+    pub async fn set_star(&self, full: &str, on: bool) -> Result<(), String> {
+        let r = self.t.send(if on { "PUT" } else { "DELETE" }, &format!("/user/starred/{full}"), JSON).await?;
+        if (200..300).contains(&r.status) { Ok(()) } else { Err(self.explain(&r)) }
     }
-}
-
-/// True when NO_PROXY (or a loopback host) says to reach `api` directly. The HTTP client reads
-/// HTTPS_PROXY by itself but not NO_PROXY.
-fn bypass_proxy(api: &str) -> bool {
-    let host = api.split("://").nth(1).unwrap_or(api).split(['/', ':']).next().unwrap_or("").to_ascii_lowercase();
-    if host == "localhost" || host.starts_with("127.") || host == "[::1]" {
-        return true;
-    }
-    let list = std::env::var("NO_PROXY").or_else(|_| std::env::var("no_proxy")).unwrap_or_default();
-    list.split(',').map(|e| e.trim().trim_start_matches('.').to_ascii_lowercase()).filter(|e| !e.is_empty())
-        .any(|e| e == "*" || host == e || host.ends_with(&format!(".{e}")))
-}
-
-fn now_secs() -> i64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or(0)
 }
 
 /// Everything the overview and lists need, in one go (about 4 + 2 × `activity_repos` requests).
-pub fn load_all(cfg: &Config) -> Result<Data, String> {
+pub async fn load_all(cfg: &Config) -> Result<Data, String> {
     let gh = Gh::new(cfg);
-    let profile = gh.profile(cfg)?;
-    let own = cfg.token.is_some() && cfg.user.as_ref().is_none_or(|u| gh.viewer_login().is_some_and(|v| v.eq_ignore_ascii_case(u)));
-    let repos = gh.repos(cfg, &profile.login, own)?;
-    let pulls = gh.pulls(&profile.login);
-    let issues = gh.issues(&profile.login);
-    let active: Vec<&Repo> = repos.iter().filter(|r| !r.archived).take(cfg.activity_repos).collect();
-    let mut runs: Vec<Run> = active.iter().flat_map(|r| gh.runs(&r.full_name)).collect();
-    runs.truncate(20);
+    let profile = gh.profile(cfg).await?;
+    let own = gh.t.has_token() && match &cfg.user {
+        None => true,
+        Some(u) => gh.viewer_login().await.is_some_and(|v| v.eq_ignore_ascii_case(u)),
+    };
+    let repos = gh.repos(cfg, &profile.login, own).await?;
+    let pulls = gh.pulls(&profile.login).await;
+    let issues = gh.issues(&profile.login).await;
+    let active: Vec<String> = repos.iter().filter(|r| !r.archived).take(cfg.activity_repos).map(|r| r.full_name.clone()).collect();
+    let mut runs: Vec<Run> = Vec::new();
     let mut activity = vec![0u32; 26];
-    for r in &active {
-        for (i, w) in gh.participation(&r.full_name).iter().enumerate() {
+    for full in &active {
+        runs.extend(gh.runs(full).await);
+        for (i, w) in gh.participation(full).await.iter().enumerate() {
             activity[i] += w;
         }
     }
+    runs.truncate(20);
     Ok(Data { profile, repos, pulls, issues, runs, activity, sample: false })
 }
 
-pub fn load_detail(cfg: &Config, full: &str) -> Detail {
-    Gh::new(cfg).detail(full)
+pub async fn load_detail(cfg: &Config, full: &str) -> Detail {
+    Gh::new(cfg).detail(full).await
 }
 
-pub fn set_star(cfg: &Config, full: &str, on: bool) -> Result<(), String> {
-    Gh::new(cfg).set_star(full, on)
+pub async fn set_star(cfg: &Config, full: &str, on: bool) -> Result<(), String> {
+    Gh::new(cfg).set_star(full, on).await
 }
 
 #[cfg(test)]
