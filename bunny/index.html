@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blue Bunny 3D</title>
+  <style>
+    :root { --bg: #c9cbcc; --panel: rgba(20, 28, 32, 0.82); --fg: #eef6f7; --acc: #7cc4c9; --red: #b9433d; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; color: var(--fg); }
+    #app { position: fixed; inset: 0; }
+    canvas { display: block; touch-action: none; }
+    .panel { position: fixed; top: 16px; left: 16px; width: 270px; max-width: calc(100vw - 32px); background: var(--panel); border-radius: 14px; padding: 14px 16px; backdrop-filter: blur(6px); box-shadow: 0 8px 30px rgba(0,0,0,.25); }
+    .panel h1 { margin: 0 0 2px; font-size: 18px; }
+    .panel p.sub { margin: 0 0 12px; font-size: 12px; opacity: .7; }
+    .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 8px 0; font-size: 13px; }
+    .anims { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 6px 0 10px; }
+    button { background: #2b3b41; color: var(--fg); border: 1px solid #3c5259; border-radius: 8px; padding: 7px 6px; font-size: 12px; cursor: pointer; }
+    button.on { background: var(--acc); color: #0d2326; border-color: var(--acc); font-weight: 600; }
+    input[type=range] { width: 120px; accent-color: var(--acc); }
+    input[type=color] { width: 40px; height: 26px; border: none; background: none; padding: 0; cursor: pointer; }
+    input[type=checkbox] { accent-color: var(--acc); width: 16px; height: 16px; }
+    .toggle { cursor: pointer; }
+    #info { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: var(--panel); padding: 8px 14px; border-radius: 999px; font-size: 13px; pointer-events: none; white-space: nowrap; max-width: calc(100vw - 32px); overflow: hidden; text-overflow: ellipsis; }
+    #ref { position: fixed; top: 16px; right: 16px; width: 200px; border-radius: 12px; overflow: hidden; box-shadow: 0 8px 30px rgba(0,0,0,.25); display: none; }
+    #ref img { width: 100%; display: block; }
+    #ref span { position: absolute; top: 6px; left: 8px; font-size: 11px; background: var(--panel); padding: 2px 6px; border-radius: 6px; }
+    #collapse { position: absolute; top: 10px; right: 10px; padding: 2px 8px; }
+    .panel.min > :not(h1):not(#collapse) { display: none; }
+    @media (max-width: 600px) {
+      .panel { top: auto; bottom: 64px; left: 16px; width: auto; right: 16px; max-height: 45vh; overflow: auto; }
+      #ref { width: 110px; }
+    }
+  </style>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="app"></div>
+
+  <div class="panel" id="panel">
+    <h1>🐰 Blue Bunny</h1>
+    <button id="collapse" title="Riduci">–</button>
+    <p class="sub">Modello Three.js procedurale (img2threejs) — trascina per ruotare, rotella per zoom, clicca una parte.</p>
+    <div class="row"><strong>Animazione</strong></div>
+    <div class="anims" id="anims"></div>
+    <div class="row"><label for="explode">Esplodi parti</label><input id="explode" type="range" min="0" max="1" step="0.01" value="0"></div>
+    <div class="row"><label for="furColor">Colore pelo</label><input id="furColor" type="color" value="#7cc4c9"></div>
+    <div class="row"><label for="ponchoColor">Colore poncho</label><input id="ponchoColor" type="color" value="#b9433d"></div>
+    <label class="row toggle"><span>Pelliccia (shell fur)</span><input id="fur" type="checkbox" checked></label>
+    <label class="row toggle"><span>Poncho</span><input id="poncho" type="checkbox" checked></label>
+    <label class="row toggle"><span>Wireframe</span><input id="wire" type="checkbox"></label>
+    <label class="row toggle"><span>Rotazione automatica</span><input id="spin" type="checkbox"></label>
+    <label class="row toggle"><span>Mostra immagine di riferimento</span><input id="showRef" type="checkbox"></label>
+    <div class="row"><button id="resetCam" style="flex:1">Reset camera</button><button id="shot" style="flex:1">Screenshot</button></div>
+  </div>
+
+  <div id="ref"><span>Riferimento</span><img src="reference.jpg" alt="Immagine di riferimento"></div>
+  <div id="info">Clicca su una parte del coniglio</div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { createBlueBunnyModel, animateBunny, ANIMATIONS } from './createBlueBunnyModel.js';
+
+    const params = new URLSearchParams(location.search);
+    const app = document.getElementById('app');
+    const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.05;
+    app.appendChild(renderer.domElement);
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color('#c9cbcc');
+    scene.fog = new THREE.Fog('#c9cbcc', 45, 90);
+
+    const camera = new THREE.PerspectiveCamera(30, innerWidth / innerHeight, 0.1, 200);
+    const HOME = { pos: new THREE.Vector3(0, 9.6, 40), target: new THREE.Vector3(0, 9.4, 0) };
+    camera.position.copy(HOME.pos);
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.target.copy(HOME.target);
+    controls.enableDamping = true;
+    controls.minDistance = 6; controls.maxDistance = 80;
+    controls.maxPolarAngle = Math.PI * 0.95;
+
+    // studio lighting like the reference render
+    scene.add(new THREE.HemisphereLight('#ffffff', '#8a8f91', 1.25));
+    const key = new THREE.DirectionalLight('#ffffff', 2.2);
+    key.position.set(6, 16, 14);
+    key.castShadow = true;
+    key.shadow.bias = -0.0004; key.shadow.normalBias = 0.04;
+    key.shadow.mapSize.set(2048, 2048);
+    Object.assign(key.shadow.camera, { left: -10, right: 10, top: 20, bottom: -2, near: 1, far: 50 });
+    scene.add(key);
+    const rim = new THREE.DirectionalLight('#dff4ff', 0.9);
+    rim.position.set(-8, 10, -12);
+    scene.add(rim);
+
+    const floor = new THREE.Mesh(new THREE.CircleGeometry(30, 64), new THREE.ShadowMaterial({ opacity: 0.18 }));
+    floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true;
+    scene.add(floor);
+
+    const bunny = createBlueBunnyModel();
+    scene.add(bunny);
+
+    // ---- UI ----
+    let clip = params.get('anim') || 'Idle';
+    const animBox = document.getElementById('anims');
+    ANIMATIONS.forEach((name) => {
+      const b = document.createElement('button');
+      b.textContent = name;
+      b.onclick = () => { clip = name; [...animBox.children].forEach((c) => c.classList.toggle('on', c === b)); };
+      if (name === clip) b.classList.add('on');
+      animBox.appendChild(b);
+    });
+    const $ = (id) => document.getElementById(id);
+    $('explode').oninput = (e) => bunny.userData.setExplode(+e.target.value * 3);
+    $('furColor').oninput = (e) => bunny.userData.setFurColor(e.target.value);
+    $('ponchoColor').oninput = (e) => bunny.userData.setPonchoColor(e.target.value);
+    $('fur').onchange = (e) => bunny.userData.setFurVisible(e.target.checked);
+    $('poncho').onchange = (e) => bunny.userData.poncho.forEach((m) => (m.visible = e.target.checked));
+    $('wire').onchange = (e) => bunny.traverse((o) => { if (o.isMesh && o.material && 'wireframe' in o.material && !o.material.isShaderMaterial) o.material.wireframe = e.target.checked; });
+    $('spin').onchange = (e) => (controls.autoRotate = e.target.checked);
+    $('showRef').onchange = (e) => ($('ref').style.display = e.target.checked ? 'block' : 'none');
+    $('resetCam').onclick = () => { camera.position.copy(HOME.pos); controls.target.copy(HOME.target); };
+    $('collapse').onclick = () => { $('panel').classList.toggle('min'); $('collapse').textContent = $('panel').classList.contains('min') ? '+' : '–'; };
+    $('shot').onclick = () => { const a = document.createElement('a'); a.download = 'blue-bunny.png'; a.href = renderer.domElement.toDataURL('image/png'); a.click(); };
+    if (params.has('fur') && params.get('fur') === '0') { $('fur').checked = false; bunny.userData.setFurVisible(false); }
+
+    // ---- picking: click a part to highlight it ----
+    const ray = new THREE.Raycaster();
+    const ndc = new THREE.Vector2();
+    let selected = null;
+    let down = null;
+    renderer.domElement.addEventListener('pointerdown', (e) => (down = [e.clientX, e.clientY]));
+    renderer.domElement.addEventListener('pointerup', (e) => {
+      if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 5) return;
+      ndc.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+      ray.setFromCamera(ndc, camera);
+      const hit = ray.intersectObjects(bunny.userData.parts, false).find((h) => h.object.visible);
+      select(hit ? hit.object : null);
+    });
+    function select(obj) {
+      if (selected) selected.forEach(({ m, e }) => m.emissive && m.emissive.copy(e));
+      selected = null;
+      if (!obj) { $('info').textContent = 'Clicca su una parte del coniglio'; return; }
+      const part = obj.userData.part;
+      const mats = new Set();
+      bunny.userData.parts.forEach((p) => { if (p.userData.part === part || p === obj) mats.add(p.material); });
+      // clone shared materials lazily so only the chosen part glows
+      selected = [];
+      bunny.userData.parts.filter((p) => p.userData.part === part || p === obj).forEach((p) => {
+        if (!p.userData.ownMat) { p.material = p.material.clone(); p.userData.ownMat = true; }
+        if (p.material.emissive) { selected.push({ m: p.material, e: p.material.emissive.clone() }); p.material.emissive.set('#3a6f2a'); }
+      });
+      $('info').textContent = `Selezionato: ${obj.userData.label}`;
+      // hop reaction when the head is clicked
+      if (part === 'head' || part === 'nose') { clip = 'Salto'; setTimeout(() => (clip = 'Idle'), 1400); }
+    }
+
+    // ---- capture contract used by the img2threejs render bridge ----
+    window.__IMG2THREEJS_CAPTURE__ = {
+      setCamera({ azimuth = 0, elevation = 0, distance = 40, target = [0, 9.4, 0] } = {}) {
+        const a = THREE.MathUtils.degToRad(azimuth), el = THREE.MathUtils.degToRad(elevation);
+        controls.target.set(...target);
+        camera.position.set(target[0] + Math.sin(a) * Math.cos(el) * distance, target[1] + Math.sin(el) * distance, target[2] + Math.cos(a) * Math.cos(el) * distance);
+        controls.update();
+      },
+      setClip(c) { clip = c; },
+    };
+
+    const clock = new THREE.Clock();
+    renderer.setAnimationLoop(() => {
+      const t = params.has('t') ? +params.get('t') : clock.getElapsedTime();
+      animateBunny(bunny, clip, t);
+      controls.update();
+      renderer.render(scene, camera);
+      window.__IMG2THREEJS_READY__ = true;
+    });
+    addEventListener('resize', () => {
+      camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth, innerHeight);
+    });
+  </script>
+</body>
+</html>

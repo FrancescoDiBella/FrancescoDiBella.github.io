@@ -1,0 +1,14 @@
+{
+  "admitted": true,
+  "reasons": [],
+  "provenance": {
+    "viewpoint": "reference",
+    "sourcePath": "../reference.jpg",
+    "width": 1696,
+    "height": 2528,
+    "foregroundCoverage": 0.2724,
+    "largestComponentFraction": 1.0,
+    "pHash": 13450209996094736426,
+    "duplicateOfHash": null
+  }
+}
