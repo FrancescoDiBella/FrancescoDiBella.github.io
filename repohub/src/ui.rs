@@ -5,7 +5,7 @@ pub const H1: TextStyle = TextStyle::new(24.0, 650.0);
 pub const H2: TextStyle = TextStyle::new(21.0, 620.0);
 use rune_kit::Kit;
 
-use crate::data::{Checks, PullState};
+use crate::model::{Checks, PullState};
 use crate::icons;
 
 /// A rounded panel on the page background.
@@ -85,6 +85,7 @@ pub fn pull_icon(k: &Kit, s: PullState) -> El {
         PullState::Open => ico(&icons::PULL, 16.0, k.c.success.icon),
         PullState::Draft => ico(&icons::PULL, 16.0, k.c.icon_faint),
         PullState::Merged => ico(&icons::MERGE, 16.0, oklch(0.62, 0.17, 300.0)),
+        PullState::Closed => ico(&icons::PULL, 16.0, k.c.danger.icon),
     }
 }
 
@@ -95,7 +96,7 @@ pub fn pill(k: &Kit, label: &str, ink: Color) -> El {
 }
 
 /// Weekly commit bars, newest on the right.
-pub fn sparkline(k: &Kit, values: &[u8], height: f32) -> El {
+pub fn sparkline(k: &Kit, values: &[u32], height: f32) -> El {
     let max = values.iter().copied().max().unwrap_or(1).max(1) as f32;
     let n = values.len();
     let bars = values.iter().enumerate().map(|(i, v)| {
